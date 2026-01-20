@@ -73,7 +73,8 @@ export const api = {
             };
 
             // Update local mock state (in a real app we'd need better state management)
-            const slotIndex = MOCK_SLOTS.findIndex(s => s.date === booking.date && `${s.startTime}-${s.endTime}` === booking.timeSlot);
+            // Update local mock state (in a real app we'd need better state management)
+            const slotIndex = MOCK_SLOTS.findIndex(s => s.date === booking.date && `${s.startTime}-${s.endTime}` === booking.timeSlot && (s.location || "Bangkok") === (booking.location || "Bangkok"));
             if (slotIndex >= 0) {
                 if ((MOCK_SLOTS[slotIndex].bookedCount || 0) >= MOCK_SLOTS[slotIndex].maxQuota) {
                     return { success: false, error: "Slot is full (mock check)" };
@@ -98,7 +99,7 @@ export const api = {
     async saveSlot(slot: Slot): Promise<ApiResponse<void>> {
         if (!API_URL) {
             await delay(500);
-            const existing = MOCK_SLOTS.find(s => s.date === slot.date && s.startTime === slot.startTime && s.endTime === slot.endTime);
+            const existing = MOCK_SLOTS.find(s => s.date === slot.date && s.startTime === slot.startTime && s.endTime === slot.endTime && (s.location || "Bangkok") === (slot.location || "Bangkok"));
             if (existing) {
                 existing.maxQuota = slot.maxQuota;
             } else {
@@ -121,7 +122,7 @@ export const api = {
     async deleteSlot(slot: Slot): Promise<ApiResponse<void>> {
         if (!API_URL) {
             await delay(500);
-            const index = MOCK_SLOTS.findIndex(s => s.date === slot.date && s.startTime === slot.startTime && s.endTime === slot.endTime);
+            const index = MOCK_SLOTS.findIndex(s => s.date === slot.date && s.startTime === slot.startTime && s.endTime === slot.endTime && (s.location || "Bangkok") === (slot.location || "Bangkok"));
             if (index >= 0) {
                 MOCK_SLOTS.splice(index, 1);
             }

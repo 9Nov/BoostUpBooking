@@ -1,17 +1,17 @@
-
 import { format, startOfWeek, addDays, startOfMonth, endOfMonth, endOfWeek, isSameMonth, isSameDay, isToday } from 'date-fns';
 import { cn } from '../lib/utils';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import type { Slot } from '../types';
 
 interface CalendarGridProps {
     currentDate: Date;
     selectedDate: Date | null;
     onDateSelect: (date: Date) => void;
     onMonthChange: (date: Date) => void;
-    slotsData?: { date: string, status: 'full' | 'available' | 'none' }[]; // Optional indicator
+    slots?: Slot[]; // Add slots prop to show indicators
 }
 
-export function CalendarGrid({ currentDate, selectedDate, onDateSelect, onMonthChange }: CalendarGridProps) {
+export function CalendarGrid({ currentDate, selectedDate, onDateSelect, onMonthChange, slots = [] }: CalendarGridProps) {
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(monthStart);
     const startDate = startOfWeek(monthStart);
@@ -26,6 +26,16 @@ export function CalendarGrid({ currentDate, selectedDate, onDateSelect, onMonthC
     const nextMonth = () => onMonthChange(addDays(monthStart, 32)); // Jump safely to next month
     const prevMonth = () => onMonthChange(addDays(monthStart, -1)); // Jump safely to prev month
 
+    // Helper function to check if a date has available slots
+    const hasAvailableSlots = (date: Date): boolean => {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        return slots.some(slot => {
+            const hasSlot = slot.date === dateStr;
+            const isAvailable = (slot.bookedCount || 0) < slot.maxQuota;
+            return hasSlot && isAvailable;
+        });
+    };
+
     while (day <= endDate) {
         for (let i = 0; i < 7; i++) {
             formattedDate = format(day, dateFormat);
@@ -34,6 +44,7 @@ export function CalendarGrid({ currentDate, selectedDate, onDateSelect, onMonthC
             const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
             const isCurrentMonth = isSameMonth(day, monthStart);
             const isDayToday = isToday(day);
+            const hasSlots = hasAvailableSlots(day);
 
             days.push(
                 <div
@@ -53,7 +64,10 @@ export function CalendarGrid({ currentDate, selectedDate, onDateSelect, onMonthC
                     )}>
                         {formattedDate}
                     </span>
-                    {/* We can add dots/indicators here later */}
+                    {/* Indicator dot for days with available slots */}
+                    {hasSlots && isCurrentMonth && (
+                        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+                    )}
                 </div>
             );
             day = addDays(day, 1);

@@ -88,7 +88,7 @@ function getSlots(startDate, endDate) {
 }
 
 function createBooking(payload) {
-  const { date, timeSlot, user, email } = payload;
+  const { date, timeSlot, user, email, location } = payload;
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const tz = ss.getSpreadsheetTimeZone();
   const bookingSheet = ss.getSheetByName(SHEET_BOOKINGS);
@@ -102,8 +102,15 @@ function createBooking(payload) {
       const sDate = s.date instanceof Date ? Utilities.formatDate(s.date, tz, "yyyy-MM-dd") : String(s.date).trim();
       const sStart = s.startTime instanceof Date ? Utilities.formatDate(s.startTime, tz, "HH:mm") : String(s.startTime).trim().substring(0, 5);
       const sEnd = s.endTime instanceof Date ? Utilities.formatDate(s.endTime, tz, "HH:mm") : String(s.endTime).trim().substring(0, 5);
+      const sLocation = s.location ? String(s.location).trim() : "";
       
-      return sDate === date && `${sStart}-${sEnd}` === timeSlot;
+      const timeMatch = `${sStart}-${sEnd}` === timeSlot;
+      // If location is provided, it MUST match. If not provided (legacy), lenient? No, force match if column exists.
+      // Assuming new system always sends location for slots that have it. 
+      // Or simplify: match if location strings match (empty matches empty)
+      const locationMatch = location ? sLocation === location : true;
+
+      return sDate === date && timeMatch && locationMatch;
   });
   
   if (!targetSlot) {
@@ -111,13 +118,17 @@ function createBooking(payload) {
     const firstSlot = slots.length > 0 ? JSON.stringify(slots[0]) : "No slots found";
     return response({ 
         success: false, 
-        error: "Slot not found. Searched for: " + date + " " + timeSlot + ". First slot data: " + firstSlot,
-        backendVersion: "v4.8.0"
+        error: "Slot not found. Searched for: " + date + " " + timeSlot + " " + (location||"") + ". First slot data: " + firstSlot,
+        backendVersion: "v4.9.0"
     });
   }
 
   const bookings = getData(bookingSheet, tz);
-  const currentBookings = bookings.filter(b => b.date === date && b.timeSlot === timeSlot).length;
+  const currentBookings = bookings.filter(b => {
+      const bLocation = b.location ? String(b.location).trim() : "";
+      const locMatch = location ? bLocation === location : true;
+      return b.date === date && b.timeSlot === timeSlot && locMatch;
+  }).length;
 
   if (currentBookings >= targetSlot.maxQuota) {
     return response({ success: false, error: "Slot is full" });
@@ -126,9 +137,11 @@ function createBooking(payload) {
   const id = Utilities.getUuid();
   const timestamp = new Date().toISOString();
   
-  bookingSheet.appendRow([id, date, timeSlot, user, email || "", timestamp]);
+  // Append with Location in Column G (index 6, 7th column) if standard, but we just append using appendRow
+  // [ID, Date, TimeSlot, User, Email, Timestamp, Location]
+  bookingSheet.appendRow([id, date, timeSlot, user, email || "", timestamp, location || ""]);
   
-  return response({ success: true, data: { id, date, timeSlot, user, email, timestamp } });
+  return response({ success: true, data: { id, date, timeSlot, user, email, timestamp, location } });
 }
 
 function saveSlot(payload) {
@@ -137,17 +150,27 @@ function saveSlot(payload) {
   const sheet = ss.getSheetByName(SHEET_SLOTS);
   const data = getData(sheet, tz);
   
-  // payload: { date, startTime, endTime, maxQuota }
+  // payload: { date, startTime, endTime, maxQuota, location }
   // Check if exists
-  const rowIndex = data.findIndex(row => row.date === payload.date && row.startTime === payload.startTime && row.endTime === payload.endTime);
+  const rowIndex = data.findIndex(row => {
+      const rLocation = row.location ? String(row.location).trim() : "";
+      const pLocation = payload.location ? String(payload.location).trim() : "";
+      
+      return row.date === payload.date && 
+             row.startTime === payload.startTime && 
+             row.endTime === payload.endTime &&
+             rLocation === pLocation;
+  });
   
   if (rowIndex >= 0) {
     // Update (row index + 2 because header is 1 and data index is 0-based)
-    const range = sheet.getRange(rowIndex + 2, 4); // Column 4 is maxQuota
+    // Update Quota (Column 4)
+    const range = sheet.getRange(rowIndex + 2, 4); 
     range.setValue(payload.maxQuota);
   } else {
     // Create
-    sheet.appendRow([payload.date, payload.startTime, payload.endTime, payload.maxQuota]);
+    // [Date, Start, End, Quota, Location]
+    sheet.appendRow([payload.date, payload.startTime, payload.endTime, payload.maxQuota, payload.location || ""]);
   }
   
   return response({ success: true });
@@ -167,19 +190,22 @@ function deleteSlot(payload) {
      const rDate = row.date instanceof Date ? Utilities.formatDate(row.date, tz, "yyyy-MM-dd") : String(row.date).trim();
      const rStart = row.startTime instanceof Date ? Utilities.formatDate(row.startTime, tz, "HH:mm") : String(row.startTime).trim().substring(0, 5);
      const rEnd = row.endTime instanceof Date ? Utilities.formatDate(row.endTime, tz, "HH:mm") : String(row.endTime).trim().substring(0, 5);
+     const rLocation = row.location ? String(row.location).trim() : "";
      
-     if (rDate === payload.date && rStart === payload.startTime && rEnd === payload.endTime) {
+     const pLocation = payload.location ? String(payload.location).trim() : "";
+
+     if (rDate === payload.date && rStart === payload.startTime && rEnd === payload.endTime && rLocation === pLocation) {
          sheet.deleteRow(i + 2); // +2 for header and 0-index
          deletedCount++;
      }
   }
    
   if (deletedCount > 0) {
-      return response({ success: true, backendVersion: "v4.8.0", message: `Deleted ${deletedCount} slot(s)` });
+      return response({ success: true, backendVersion: "v4.9.0", message: `Deleted ${deletedCount} slot(s)` });
   } else {
       // Debug info in error
       const firstRow = data.length > 0 ? JSON.stringify(data[0]) : "No data";
-      return response({ success: false, error: "Delete failed. Backend v4.8.0. searched for: " + JSON.stringify(payload) + ". First row: " + firstRow, backendVersion: "v4.8.0" });
+      return response({ success: false, error: "Delete failed. Backend v4.9.0. searched for: " + JSON.stringify(payload) + ". First row: " + firstRow, backendVersion: "v4.9.0" });
   }
 }
 

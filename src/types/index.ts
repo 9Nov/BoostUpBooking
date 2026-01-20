@@ -3,6 +3,7 @@ export interface Slot {
     startTime: string; // HH:mm
     endTime: string; // HH:mm
     maxQuota: number;
+    location?: string; // "Bangkok" | "Rayong"
     bookedCount?: number; // Calculated on fetching
 }
 
@@ -12,6 +13,7 @@ export interface Booking {
     timeSlot: string; // "HH:mm-HH:mm"
     user: string;
     email: string;
+    location?: string;
     timestamp: string;
 }
 

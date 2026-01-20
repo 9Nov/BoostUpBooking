@@ -16,17 +16,20 @@ export function SlotEditorModal({ isOpen, onClose, slot, dateContext, onSave, on
     const [startTime, setStartTime] = useState("09:00");
     const [endTime, setEndTime] = useState("10:00");
     const [quota, setQuota] = useState(10);
+    const [location, setLocation] = useState("Bangkok");
 
     useEffect(() => {
         if (slot) {
             setStartTime(slot.startTime);
             setEndTime(slot.endTime);
             setQuota(slot.maxQuota);
+            setLocation(slot.location || "Bangkok");
         } else {
             // Default values
             setStartTime("09:00");
             setEndTime("10:00");
             setQuota(10);
+            setLocation("Bangkok");
         }
     }, [slot, isOpen]);
 
@@ -39,6 +42,7 @@ export function SlotEditorModal({ isOpen, onClose, slot, dateContext, onSave, on
             startTime,
             endTime,
             maxQuota: Number(quota),
+            location,
             bookedCount: slot?.bookedCount || 0
         });
         onClose();
@@ -80,6 +84,18 @@ export function SlotEditorModal({ isOpen, onClose, slot, dateContext, onSave, on
                         min={1}
                         required
                     />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                    <label className="text-sm font-medium text-gray-700">Location</label>
+                    <select
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none bg-white"
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                    >
+                        <option value="Bangkok">Bangkok</option>
+                        <option value="Rayong">Rayong</option>
+                    </select>
                 </div>
 
                 <div className="flex gap-2 pt-2">

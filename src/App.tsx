@@ -14,6 +14,7 @@ function App() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(false);
+  const [locationFilter, setLocationFilter] = useState("Bangkok");
 
   // Modes
   const [isAdmin, setIsAdmin] = useState(false);
@@ -52,8 +53,12 @@ function App() {
   const slotsForSelectedDay = useMemo(() => {
     if (!selectedDate) return [];
     const dateStr = format(selectedDate, "yyyy-MM-dd");
-    return slots.filter(s => s.date === dateStr);
-  }, [slots, selectedDate]);
+    return slots.filter(s => {
+      const isDateMatch = s.date === dateStr;
+      const slotLoc = s.location || "Bangkok";
+      return isDateMatch && slotLoc === locationFilter;
+    });
+  }, [slots, selectedDate, locationFilter]);
 
   // Actions
   const handleBookingConfirm = async (name: string, email: string) => {
@@ -64,7 +69,8 @@ function App() {
         date: bookingSlot.date,
         timeSlot: `${bookingSlot.startTime}-${bookingSlot.endTime}`,
         user: name,
-        email: email
+        email: email,
+        location: bookingSlot.location
       });
 
       if (res.success) {
@@ -124,10 +130,25 @@ function App() {
             selectedDate={selectedDate}
             onDateSelect={setSelectedDate}
             onMonthChange={setCurrentDate}
+            slots={slots}
           />
         </div>
 
         <div>
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between mb-6">
+            <span className="font-medium text-gray-700">Location</span>
+            <div className="flex bg-gray-100 p-1 rounded-lg">
+              {(["Bangkok", "Rayong"] as const).map((loc) => (
+                <button
+                  key={loc}
+                  onClick={() => setLocationFilter(loc)}
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${locationFilter === loc ? "bg-white shadow-sm text-black" : "text-gray-500 hover:text-gray-700"}`}
+                >
+                  {loc}
+                </button>
+              ))}
+            </div>
+          </div>
           <DayView
             date={selectedDate}
             slots={slotsForSelectedDay}
