@@ -150,6 +150,9 @@ function saveSlot(payload) {
   const sheet = ss.getSheetByName(SHEET_SLOTS);
   const data = getData(sheet, tz);
   
+  // DEBUG: Log the incoming payload
+  Logger.log("saveSlot payload: " + JSON.stringify(payload));
+  
   // payload: { date, startTime, endTime, maxQuota, location }
   // Check if exists
   const rowIndex = data.findIndex(row => {
@@ -164,16 +167,19 @@ function saveSlot(payload) {
   
   if (rowIndex >= 0) {
     // Update (row index + 2 because header is 1 and data index is 0-based)
-    // Update Quota (Column 4)
-    const range = sheet.getRange(rowIndex + 2, 4); 
-    range.setValue(payload.maxQuota);
+    // Update Quota (Column 4) and Location (Column 5)
+    sheet.getRange(rowIndex + 2, 4).setValue(payload.maxQuota);
+    sheet.getRange(rowIndex + 2, 5).setValue(payload.location || "");
+    Logger.log("Updated existing slot at row " + (rowIndex + 2) + " with location: " + payload.location);
   } else {
     // Create
     // [Date, Start, End, Quota, Location]
-    sheet.appendRow([payload.date, payload.startTime, payload.endTime, payload.maxQuota, payload.location || ""]);
+    const rowData = [payload.date, payload.startTime, payload.endTime, payload.maxQuota, payload.location || ""];
+    Logger.log("Creating new slot with data: " + JSON.stringify(rowData));
+    sheet.appendRow(rowData);
   }
   
-  return response({ success: true });
+  return response({ success: true, debug: { location: payload.location, rowIndex: rowIndex } });
 }
 
 function deleteSlot(payload) {
