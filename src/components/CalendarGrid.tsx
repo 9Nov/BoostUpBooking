@@ -26,14 +26,22 @@ export function CalendarGrid({ currentDate, selectedDate, onDateSelect, onMonthC
     const nextMonth = () => onMonthChange(addDays(monthStart, 32)); // Jump safely to next month
     const prevMonth = () => onMonthChange(addDays(monthStart, -1)); // Jump safely to prev month
 
-    // Helper function to check if a date has available slots
-    const hasAvailableSlots = (date: Date): boolean => {
+    // Helper function to check if a date has available slots by location
+    const getAvailableLocations = (date: Date): { hasBangkok: boolean; hasRayong: boolean } => {
         const dateStr = format(date, 'yyyy-MM-dd');
-        return slots.some(slot => {
+        const hasBangkok = slots.some(slot => {
             const hasSlot = slot.date === dateStr;
             const isAvailable = (slot.bookedCount || 0) < slot.maxQuota;
-            return hasSlot && isAvailable;
+            const isBangkok = (slot.location || 'Bangkok') === 'Bangkok';
+            return hasSlot && isAvailable && isBangkok;
         });
+        const hasRayong = slots.some(slot => {
+            const hasSlot = slot.date === dateStr;
+            const isAvailable = (slot.bookedCount || 0) < slot.maxQuota;
+            const isRayong = slot.location === 'Rayong';
+            return hasSlot && isAvailable && isRayong;
+        });
+        return { hasBangkok, hasRayong };
     };
 
     while (day <= endDate) {
@@ -44,7 +52,7 @@ export function CalendarGrid({ currentDate, selectedDate, onDateSelect, onMonthC
             const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
             const isCurrentMonth = isSameMonth(day, monthStart);
             const isDayToday = isToday(day);
-            const hasSlots = hasAvailableSlots(day);
+            const { hasBangkok, hasRayong } = getAvailableLocations(day);
 
             days.push(
                 <div
@@ -64,9 +72,16 @@ export function CalendarGrid({ currentDate, selectedDate, onDateSelect, onMonthC
                     )}>
                         {formattedDate}
                     </span>
-                    {/* Indicator dot for days with available slots */}
-                    {hasSlots && isCurrentMonth && (
-                        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+                    {/* Indicator dots for days with available slots by location */}
+                    {isCurrentMonth && (hasBangkok || hasRayong) && (
+                        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-1">
+                            {hasBangkok && (
+                                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+                            )}
+                            {hasRayong && (
+                                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                            )}
+                        </div>
                     )}
                 </div>
             );
