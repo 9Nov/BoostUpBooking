@@ -11,9 +11,14 @@ export interface Booking {
     id: string;
     date: string;
     timeSlot: string; // "HH:mm-HH:mm"
+    startTime: string; // HH:mm (parsed from timeSlot)
+    endTime: string; // HH:mm (parsed from timeSlot)
     user: string;
+    name: string; // Same as user, for email template
     email: string;
+    phone?: string;
     location?: string;
+    notes?: string;
     timestamp: string;
 }
 

@@ -7,6 +7,12 @@ import { AdminLoginModal } from './components/AdminLoginModal';
 import { BookingModal } from './components/BookingModal';
 import { SlotEditorModal } from './components/SlotEditorModal';
 import { api } from './services/api';
+import {
+  initializeGmailAuth,
+  handleOAuthCallback,
+  isGmailAuthenticated,
+  sendBookingConfirmation
+} from './services/emailService';
 import type { Slot } from './types';
 
 function App() {
@@ -18,12 +24,25 @@ function App() {
 
   // Modes
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isGmailAuthorized, setIsGmailAuthorized] = useState(false);
 
   // Modals
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [bookingSlot, setBookingSlot] = useState<Slot | null>(null);
   const [editingSlot, setEditingSlot] = useState<Slot | null>(null);
   const [isAddingSlot, setIsAddingSlot] = useState(false);
+
+  // Handle OAuth callback on mount
+  useEffect(() => {
+    handleOAuthCallback().then((success) => {
+      if (success) {
+        setIsGmailAuthorized(true);
+        console.log('Gmail authorized successfully!');
+      }
+    });
+    // Check if already authorized
+    setIsGmailAuthorized(isGmailAuthenticated());
+  }, []);
 
   // Data Fetching
   const fetchSlots = async () => {
@@ -64,25 +83,59 @@ function App() {
   const handleBookingConfirm = async (name: string, email: string) => {
     if (!bookingSlot) return;
 
+    const [startTime, endTime] = bookingSlot.startTime && bookingSlot.endTime
+      ? [bookingSlot.startTime, bookingSlot.endTime]
+      : ['', ''];
+
     try {
       const res = await api.createBooking({
         date: bookingSlot.date,
         timeSlot: `${bookingSlot.startTime}-${bookingSlot.endTime}`,
+        startTime: startTime,
+        endTime: endTime,
         user: name,
+        name: name,
         email: email,
         location: bookingSlot.location
       });
 
       if (res.success) {
+        // Send email confirmation if Gmail is authorized
+        if (isGmailAuthorized) {
+          const bookingData = {
+            id: res.data?.id || '',
+            date: bookingSlot.date,
+            timeSlot: `${bookingSlot.startTime}-${bookingSlot.endTime}`,
+            startTime: bookingSlot.startTime,
+            endTime: bookingSlot.endTime,
+            user: name,
+            name: name,
+            email: email,
+            location: bookingSlot.location,
+            timestamp: new Date().toISOString()
+          };
+
+          const emailSent = await sendBookingConfirmation(bookingData);
+          if (emailSent) {
+            console.log('✅ Confirmation email sent successfully!');
+          } else {
+            console.warn('⚠️ Failed to send confirmation email');
+          }
+        }
+
         setBookingSlot(null);
         fetchSlots(); // Refresh
-        alert("Booking confirmed!");
+        alert("Booking confirmed!" + (isGmailAuthorized ? " Confirmation email sent." : ""));
       } else {
         alert("Booking failed: " + res.error);
       }
     } catch (e: any) {
       alert("Error booking slot");
     }
+  };
+
+  const handleAuthorizeGmail = () => {
+    initializeGmailAuth();
   };
 
   const handleSaveSlot = async (slotData: Slot) => {
@@ -122,6 +175,8 @@ function App() {
       isAdmin={isAdmin}
       onAdminLoginClick={() => setShowAdminLogin(true)}
       onExitAdmin={() => setIsAdmin(false)}
+      isGmailAuthorized={isGmailAuthorized}
+      onAuthorizeGmail={handleAuthorizeGmail}
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="flex flex-col gap-4">

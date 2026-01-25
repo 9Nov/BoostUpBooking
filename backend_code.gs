@@ -36,6 +36,164 @@ function doPost(e) {
 
 // --- Helpers ---
 
+/**
+ * Send booking confirmation email to user
+ * 
+ * EMAIL CONFIGURATION:
+ * ====================
+ * 
+ * 1. SENDER EMAIL (From):
+ *    - Default: Email ของ Google Account ที่ deploy Apps Script
+ *    - ไม่สามารถเปลี่ยนได้ (ข้อจำกัดของ MailApp)
+ *    - ถ้าต้องการใช้ email อื่น ต้องใช้ Google Workspace + GmailApp
+ * 
+ * 2. SENDER NAME (Display Name):
+ *    - กำหนดได้ผ่าน 'name' parameter
+ *    - แสดงเป็น "Booking System <yourname@gmail.com>"
+ * 
+ * 3. REPLY-TO EMAIL:
+ *    - กำหนดได้ผ่าน 'replyTo' parameter
+ *    - เมื่อผู้รับกด Reply จะส่งไปที่ email นี้
+ * 
+ * 4. NO-REPLY EMAIL:
+ *    - ถ้าต้องการให้เป็น no-reply ให้ใส่ 'noReply: true'
+ */
+function sendConfirmationEmail(bookingData) {
+  const { email, name, bookingId, date, timeSlot, location } = bookingData;
+  
+  // ========================================
+  // 📧 EMAIL CONFIGURATION - แก้ไขที่นี่
+  // ========================================
+  
+  // Display Name ที่จะแสดงเป็น sender (แทนชื่อ Google Account)
+  const SENDER_NAME = "Booking System";
+  
+  // Reply-To Email (email ที่จะได้รับเมื่อผู้รับกด Reply)
+  // ถ้าไม่ต้องการให้ reply ใส่ null หรือ comment บรรทัดนี้
+  const REPLY_TO_EMAIL = null; // เช่น: "support@example.com"
+  
+  // No-Reply Mode (ถ้าเป็น true จะไม่สามารถ reply ได้)
+  const NO_REPLY_MODE = false;
+  
+  // ========================================
+  
+  const subject = `✅ Booking Confirmation - ${location} on ${date}`;
+  
+  const htmlBody = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .booking-details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea; }
+        .detail-row { display: flex; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .detail-label { font-weight: bold; width: 140px; color: #667eea; }
+        .detail-value { flex: 1; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        .button { display: inline-block; padding: 12px 30px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1 style="margin: 0;">🎉 Booking Confirmed!</h1>
+          <p style="margin: 10px 0 0 0;">Your reservation has been successfully made</p>
+        </div>
+        <div class="content">
+          <p>Dear <strong>${name}</strong>,</p>
+          <p>Thank you for your booking! We're pleased to confirm your reservation with the following details:</p>
+          
+          <div class="booking-details">
+            <div class="detail-row">
+              <div class="detail-label">📅 Date:</div>
+              <div class="detail-value">${date}</div>
+            </div>
+            <div class="detail-row">
+              <div class="detail-label">🕐 Time:</div>
+              <div class="detail-value">${timeSlot}</div>
+            </div>
+            <div class="detail-row">
+              <div class="detail-label">📍 Location:</div>
+              <div class="detail-value">${location}</div>
+            </div>
+            <div class="detail-row" style="border-bottom: none;">
+              <div class="detail-label">🔖 Booking ID:</div>
+              <div class="detail-value"><code>${bookingId}</code></div>
+            </div>
+          </div>
+          
+          <p><strong>Important Notes:</strong></p>
+          <ul>
+            <li>Please arrive 5-10 minutes before your scheduled time</li>
+            <li>Keep this booking ID for your records</li>
+            <li>If you need to cancel or reschedule, please contact us in advance</li>
+          </ul>
+          
+          <p>We look forward to seeing you!</p>
+        </div>
+        <div class="footer">
+          <p>This is an automated confirmation email.${NO_REPLY_MODE ? ' Please do not reply to this message.' : ''}</p>
+          <p>If you have any questions, please contact our support team.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  const plainBody = `
+Booking Confirmation
+====================
+
+Dear ${name},
+
+Thank you for your booking! We're pleased to confirm your reservation with the following details:
+
+📅 Date: ${date}
+🕐 Time: ${timeSlot}
+📍 Location: ${location}
+🔖 Booking ID: ${bookingId}
+
+Important Notes:
+- Please arrive 5-10 minutes before your scheduled time
+- Keep this booking ID for your records
+- If you need to cancel or reschedule, please contact us in advance
+
+We look forward to seeing you!
+
+---
+This is an automated confirmation email.
+  `;
+  
+  // Build email options
+  const emailOptions = {
+    to: email,
+    subject: subject,
+    body: plainBody,
+    htmlBody: htmlBody,
+    name: SENDER_NAME  // Display name
+  };
+  
+  // Add reply-to if specified
+  if (REPLY_TO_EMAIL && !NO_REPLY_MODE) {
+    emailOptions.replyTo = REPLY_TO_EMAIL;
+  }
+  
+  // Add no-reply if specified
+  if (NO_REPLY_MODE) {
+    emailOptions.noReply = true;
+  }
+  
+  // Send email with configured options
+  MailApp.sendEmail(emailOptions);
+  
+  Logger.log(`Confirmation email sent to ${email} for booking ${bookingId} (from: ${SENDER_NAME})`);
+}
+
+}
+
 function getSlots(startDate, endDate) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const tz = ss.getSpreadsheetTimeZone(); // Use Spreadsheet TimeZone
@@ -140,6 +298,23 @@ function createBooking(payload) {
   // Append with Location in Column G (index 6, 7th column) if standard, but we just append using appendRow
   // [ID, Date, TimeSlot, User, Email, Timestamp, Location]
   bookingSheet.appendRow([id, date, timeSlot, user, email || "", timestamp, location || ""]);
+  
+  // Send confirmation email
+  if (email) {
+    try {
+      sendConfirmationEmail({
+        email: email,
+        name: user,
+        bookingId: id,
+        date: date,
+        timeSlot: timeSlot,
+        location: location || "Bangkok"
+      });
+    } catch (emailError) {
+      Logger.log("Failed to send email: " + emailError.toString());
+      // Don't fail the booking if email fails
+    }
+  }
   
   return response({ success: true, data: { id, date, timeSlot, user, email, timestamp, location } });
 }
