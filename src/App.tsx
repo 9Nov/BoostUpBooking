@@ -96,7 +96,7 @@ function App() {
         user: name,
         name: name,
         email: email,
-        location: bookingSlot.location
+        location: bookingSlot.location || "Bangkok"
       });
 
       if (res.success) {
@@ -111,7 +111,7 @@ function App() {
             user: name,
             name: name,
             email: email,
-            location: bookingSlot.location,
+            location: bookingSlot.location || "Bangkok",
             timestamp: new Date().toISOString()
           };
 
