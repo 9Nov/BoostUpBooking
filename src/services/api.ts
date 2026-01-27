@@ -10,8 +10,8 @@ const MOCK_SLOTS: Slot[] = [
     { date: "2026-01-16", startTime: "09:00", endTime: "10:00", maxQuota: 3, bookedCount: 0 },
 ];
 
-// Mock API URL (Empty means we use mock mode)
-const API_URL = import.meta.env.VITE_API_URL || "";
+// API URL - Falls back to production URL if env var not set
+const API_URL = import.meta.env.VITE_API_URL || "https://script.google.com/macros/s/AKfycbw0Of9V7nqGtWw_dw2qL2fVC39YADa2QMxGko14yRNOkfxvXvj8ihKZKge7weaK1K2W/exec";
 
 export const api = {
     async getSlots(startDate?: string, endDate?: string): Promise<ApiResponse<Slot[]>> {
